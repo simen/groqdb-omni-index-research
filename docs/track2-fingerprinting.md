@@ -359,6 +359,18 @@ fn check_or(sig: &Signature, predicates: &[Predicate]) -> bool {
 
 For OR, any passing is enough. Less selective but still useful.
 
+### In Operator: `field in ["a", "b", "c"]` (v1.1)
+
+Treat as multiple equality checks, OR the results:
+
+```rust
+fn check_in(sig: &Signature, path: &str, values: &[Value]) -> bool {
+    values.iter().any(|v| check_equality(sig, path, v))
+}
+```
+
+Query-time overhead scales with array size, but test suite shows most `in` usage is small arrays (2-5 items). Acceptable for v1.1.
+
 ---
 
 ## What We Cannot Fingerprint (Limitations)
