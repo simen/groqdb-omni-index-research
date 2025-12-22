@@ -1,7 +1,8 @@
 # Track 2: Document Fingerprinting Strategies
 
 **Agent**: shard
-**Status**: In Progress
+**Status**: Complete (v1)
+**Cross-track inputs**: Track 1 (bloom), Track 3 (hash)
 
 ---
 
@@ -147,7 +148,7 @@ Insert all hashes into a probabilistic filter:
 
 ```rust
 struct DocumentSignature {
-    filter: BloomFilter,  // Or XorFilter, depending on Track 1 findings
+    filter: BinaryFuse8,  // XOR filter via `xorf` crate - recommended by Track 1
 }
 
 impl DocumentSignature {
@@ -158,7 +159,7 @@ impl DocumentSignature {
             .collect();
 
         Self {
-            filter: BloomFilter::from_hashes(&hashes),
+            filter: BinaryFuse8::try_from(&hashes).expect("filter construction"),
         }
     }
 
@@ -175,25 +176,21 @@ impl DocumentSignature {
 
 The filter size determines false positive rate. Key parameters:
 
-### Bloom Filter Sizing
+### Filter Sizing (BinaryFuse8 - per Track 1)
 
-For a Bloom filter with `m` bits, `k` hash functions, and `n` elements:
+BinaryFuse8 from the `xorf` crate achieves ~9 bits/entry for ~0.4% FPR - more space-efficient than Bloom.
 
-```
-FPR ≈ (1 - e^(-kn/m))^k
-```
+| Elements (n) | Bits | Bits/Element | FPR |
+|-------------|------|--------------|-----|
+| 100 | ~900 | ~9 | 0.4% |
+| 1000 | ~9000 | ~9 | 0.4% |
 
-Optimal `k = (m/n) * ln(2)`.
+Key properties:
+- Immutable after construction (perfect for read-only indexes)
+- 3 parallel memory accesses per lookup (cache-friendly)
+- No deletion support (not needed for static indexes)
 
-| Elements (n) | Bits (m) | Bits/Element | FPR |
-|-------------|----------|--------------|-----|
-| 100 | 960 | 9.6 | 1% |
-| 100 | 720 | 7.2 | 2% |
-| 100 | 480 | 4.8 | 5% |
-| 1000 | 9600 | 9.6 | 1% |
-| 1000 | 4800 | 4.8 | 5% |
-
-**Recommendation**: ~10 bits per element for 1% FPR.
+**Recommendation**: Use BinaryFuse8 at ~9 bits per element for <1% FPR.
 
 ### Estimating Element Count
 
@@ -399,6 +396,28 @@ For OR, any passing is enough. Less selective but still useful.
 
 ---
 
+## Cross-Track Findings
+
+### From Track 1 (bloom): Filter Type
+**Decision**: Use **BinaryFuse8** (XOR filter) from `xorf` crate.
+- ~9 bits/entry vs Bloom's ~10 bits for equivalent FPR
+- Immutable after construction - perfect for read-only indexes
+- 3 parallel memory accesses, consistent lookup time
+
+### From Track 3 (hash): Predicate Distribution
+Analysis of 2837 filter predicates in test suite:
+- **Equality (`==`)**: 21.1% - directly supported by Holodex
+- **`_type` filters**: 10.4% - also equality, high priority
+- **Range (`>`, `<`, etc)**: 14.0% - defer to v2
+- **Match**: 1.4% - low priority
+- **Nested paths**: 10.5% - supported via path normalization
+- **Array traversal `[]`**: 1.2% - supported via `[*]` normalization
+- **Dereference `->`**: 0.7% - not supported in v1
+
+**Conclusion**: Equality-first strategy validated. ~31%+ of predicates directly accelerated.
+
+---
+
 ## Open Questions
 
 1. **Should we include parent path prefixes?**
@@ -407,24 +426,20 @@ For OR, any passing is enough. Less selective but still useful.
    - Trade-off: more hashes per document
 
 2. **How to handle `_type` specially?**
-   - Almost every query filters by `_type`
-   - Could use exact index for `_type` alongside Bloom signature
-   - Or ensure `_type` is always first hash (hot in cache)
-
-3. **Filter choice depends on Track 1 findings**
-   - Bloom: classic, well-understood
-   - XOR: more space-efficient for static data
-   - Cuckoo: supports deletion (if needed later)
+   - At 10.4% of predicates, deserves optimization
+   - Option A: Exact hash map for `_type` alongside XOR filter
+   - Option B: Ensure `_type` hash is computed first (cache-hot)
 
 ---
 
 ## Next Steps
 
-1. Wait for Track 1 (bloom) to recommend filter type
-2. Prototype implementation on sample documents
-3. Measure actual FPR on GROQ test suite predicates (coordinate with Track 3/hash)
-4. Profile construction performance
+1. ~~Wait for Track 1 (bloom) to recommend filter type~~ **Done**: BinaryFuse8
+2. ~~Get predicate distribution from Track 3~~ **Done**: equality-first validated
+3. Prototype implementation with @probe (Track 6)
+4. Measure actual FPR on movies dataset (500k docs)
+5. Profile construction performance
 
 ---
 
-*Draft v1 - shard*
+*v2 - shard - Updated with cross-track findings from bloom and hash*
