@@ -1,0 +1,34 @@
+[package]
+name = "holodex-prototype"
+version = "0.1.0"
+edition = "2021"
+description = "Holodex prototype - probabilistic pre-filter for GROQ queries"
+
+[dependencies]
+# Hashing
+xxhash-rust = { version = "0.8", features = ["xxh64"] }
+
+# Bit manipulation
+bitvec = "1.0"
+
+# JSON parsing
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Command line
+clap = { version = "4.0", features = ["derive"] }
+
+# For BinaryFuse8 (optional - start with Bloom)
+# xorf = "0.11"
+
+[dev-dependencies]
+criterion = "0.5"
+
+[[bin]]
+name = "holodex_bench"
+path = "holodex_prototype.rs"
+
+# Uncomment when benchmark file is created
+# [[bench]]
+# name = "fpr_bench"
+# harness = false

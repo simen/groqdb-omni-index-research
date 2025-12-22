@@ -548,60 +548,87 @@ mod tests {
 }
 
 // ============================================================
-// Benchmark Runner (when compiled as binary)
+// Benchmark Runner (main binary)
 // ============================================================
 
-#[cfg(feature = "bench")]
 fn main() {
     use std::fs::File;
     use std::io::{BufRead, BufReader};
     use std::time::Instant;
+    use std::collections::HashMap;
 
     let args: Vec<String> = std::env::args().collect();
-    let input_file = args.get(1).expect("Usage: holodex_prototype <input.ndjson>");
+    let input_file = args.get(1).expect("Usage: holodex_bench <input.ndjson>");
 
+    println!("=== Holodex Prototype Benchmark ===\n");
     println!("Loading documents from {}...", input_file);
 
     let file = File::open(input_file).expect("Failed to open file");
     let reader = BufReader::new(file);
 
     let mut docs = Vec::new();
+    let mut type_counts: HashMap<String, usize> = HashMap::new();
+
     for (i, line) in reader.lines().enumerate() {
         let line = line.expect("Failed to read line");
         if line.trim().is_empty() {
             continue;
         }
         let json: serde_json::Value = serde_json::from_str(&line)
-            .expect(&format!("Failed to parse line {}", i + 1));
+            .unwrap_or_else(|e| panic!("Failed to parse line {}: {}", i + 1, e));
 
         let id = json.get("_id")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string())
             .unwrap_or_else(|| format!("doc-{}", i));
 
+        // Track type distribution
+        if let Some(doc_type) = json.get("_type").and_then(|v| v.as_str()) {
+            *type_counts.entry(doc_type.to_string()).or_insert(0) += 1;
+        }
+
         docs.push((id, JsonValue::from_serde(&json)));
     }
 
     println!("Loaded {} documents", docs.len());
+    println!("\nType distribution (top 10):");
+    let mut types: Vec<_> = type_counts.iter().collect();
+    types.sort_by(|a, b| b.1.cmp(a.1));
+    for (t, count) in types.iter().take(10) {
+        println!("  {}: {} ({:.1}%)", t, count, (**count as f64 / docs.len() as f64) * 100.0);
+    }
 
     // Build index
-    println!("\nBuilding Holodex index...");
+    println!("\n--- Index Build ---");
     let start = Instant::now();
     let holodex = Holodex::build(&docs);
     let build_time = start.elapsed();
 
-    println!("Build time: {:?}", build_time);
-    println!("Index size: {} bytes ({:.1} bytes/doc)",
-             holodex.size_bytes(),
-             holodex.size_bytes() as f64 / docs.len() as f64);
+    let size_bytes = holodex.size_bytes();
+    let bytes_per_doc = size_bytes as f64 / docs.len() as f64;
 
-    // Run sample queries
-    println!("\n--- Sample Queries ---");
+    println!("Build time: {:?} ({:.2} docs/ms)",
+             build_time,
+             docs.len() as f64 / build_time.as_millis() as f64);
+    println!("Index size: {} bytes ({:.1} bytes/doc)", size_bytes, bytes_per_doc);
 
-    let queries = [
-        ("_type", JsonValue::String("post".to_string())),
+    // Run sample queries and measure FPR
+    println!("\n--- Query Benchmarks ---");
+    println!("{:<40} {:>10} {:>10} {:>10} {:>12}",
+             "Query", "Candidates", "Total", "Reduction", "Time");
+    println!("{}", "-".repeat(90));
+
+    // Get the most common type for testing
+    let common_type = types.first().map(|(t, _)| t.as_str()).unwrap_or("post");
+
+    let queries: Vec<(&str, JsonValue)> = vec![
+        ("_type", JsonValue::String(common_type.to_string())),
         ("_type", JsonValue::String("author".to_string())),
+        ("_type", JsonValue::String("nonexistent".to_string())),
         ("title", JsonValue::String("Hello World".to_string())),
+        ("slug.current", JsonValue::String("test-slug".to_string())),
+        ("metadata.featured", JsonValue::Bool(true)),
+        ("author._ref", JsonValue::String("author-1".to_string())),
     ];
 
     for (path, value) in &queries {
@@ -609,7 +636,32 @@ fn main() {
         let candidates = holodex.candidates_eq(path, value);
         let query_time = start.elapsed();
 
-        println!("{} == {:?}: {} candidates in {:?}",
-                 path, value, candidates.len(), query_time);
+        let total = docs.len();
+        let reduction = 1.0 - (candidates.len() as f64 / total as f64);
+
+        let value_str = match value {
+            JsonValue::String(s) => format!("\"{}\"", s),
+            JsonValue::Bool(b) => b.to_string(),
+            JsonValue::Number(n) => n.to_string(),
+            _ => "?".to_string(),
+        };
+
+        println!("{:<40} {:>10} {:>10} {:>9.1}% {:>12?}",
+                 format!("{} == {}", path, value_str),
+                 candidates.len(),
+                 total,
+                 reduction * 100.0,
+                 query_time);
     }
+
+    // FPR estimation (requires ground truth - for now just show candidates)
+    println!("\n--- Summary ---");
+    println!("Total documents: {}", docs.len());
+    println!("Index size: {} bytes ({:.1} bytes/doc)", size_bytes, bytes_per_doc);
+    println!("Build throughput: {:.0} docs/sec",
+             docs.len() as f64 / build_time.as_secs_f64());
+
+    // Note about FPR
+    println!("\nNote: FPR measurement requires ground truth from full GROQ evaluation.");
+    println!("Run with groqdb to get actual FPR numbers.");
 }
