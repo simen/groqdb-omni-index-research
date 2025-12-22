@@ -1,8 +1,8 @@
-# Omni-Index Research Coordination Plan
+# Holodex Research Coordination Plan
 
 ## Overview
 
-This document defines the research tracks for exploring the omni-index problem. Each track is designed to be tackled by a separate agent, producing independent findings that will be synthesized into a final design.
+This document defines the research tracks for exploring **Holodex** - our holistic, holographic index for GROQ. Each track is designed to be tackled by a separate agent, producing independent findings that will be synthesized into a final design.
 
 **Coordinator**: balder
 **Status**: Draft - awaiting approval
@@ -87,14 +87,14 @@ This document defines the research tracks for exploring the omni-index problem. 
 ---
 
 ### Track 5: Integration Architecture
-**Focus**: How the omni-index integrates with groqdb's query pipeline
+**Focus**: How Holodex integrates with groqdb's query pipeline
 
 **Questions to answer**:
-- Where in the pipeline does the omni-index sit? (before/after type index?)
+- Where in the pipeline does Holodex sit? (before/after type index?)
 - How does the query planner decide when to use it?
-- What's the API between planner and omni-index?
-- How do we handle predicates the omni-index can't help with?
-- How do we combine omni-index results with existing indexes?
+- What's the API between planner and Holodex?
+- How do we handle predicates Holodex can't help with?
+- How do we combine Holodex results with existing indexes?
 
 **Deliverables**:
 - Integration design document
@@ -106,7 +106,7 @@ This document defines the research tracks for exploring the omni-index problem. 
 ---
 
 ### Track 6: Benchmarking Framework
-**Focus**: Build infrastructure to measure omni-index effectiveness
+**Focus**: Build infrastructure to measure Holodex effectiveness
 
 **Questions to answer**:
 - What datasets should we benchmark against?

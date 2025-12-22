@@ -1,12 +1,14 @@
-# GROQDB Omni-Index Research
+# Holodex
 
-**A research project exploring probabilistic indexing strategies for GROQ query engines.**
+**A holistic, holographic index for GROQ query engines.**
 
 ## Mission Statement
 
 GROQ is designed for non-expert developers who shouldn't need to think about indexes. Yet GROQ's expressiveness means users can filter and project over arbitrary field combinations, leading to full scans when specific indexes don't exist.
 
-**Our goal**: Design an "omni-index" - a probabilistic data structure that can drastically reduce scan scope for *any* query predicate, without requiring per-field index configuration.
+**Our goal**: Design **Holodex** - a probabilistic data structure that can drastically reduce scan scope for *any* query predicate, without requiring per-field index configuration.
+
+The name captures the vision: a single "holographic" structure that lets you query any dimension of your document space, like viewing a hologram from any angle.
 
 **Key constraint**: False positives are acceptable (we scan a few extra documents), but false negatives are not (we must never miss a matching document).
 
@@ -25,7 +27,7 @@ Currently, groqdb can use a `_type` index to narrow to posts, but `title match "
 
 1. **Explore probabilistic pre-filter structures** that can answer "might this document match predicate P?" with controlled false positive rates
 
-2. **Design a unified "omni-index"** that works across arbitrary field paths and predicate types (equality, match, range, etc.)
+2. **Design Holodex** to work across arbitrary field paths and predicate types (equality, match, range, etc.)
 
 3. **Prototype and benchmark** against real GROQ workloads to validate the approach
 
