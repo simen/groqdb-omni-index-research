@@ -1,0 +1,93 @@
+# Holodex Benchmark Queries
+#
+# These queries represent patterns that would benefit from Holodex.
+# Each query tests a specific indexing scenario.
+#
+# Categories:
+# - nested_equality: Simple equality on nested paths
+# - deep_path: Array traversal with nested access
+# - compound_nested: _type filter + additional field predicates
+# - array_traversal: Queries using [] flattening
+# - type_plus_field: Common _type + field filter pattern
+# - defined_check: Existence checks on paths
+#
+# Format: # CATEGORY: description
+#         query
+
+# === NESTED EQUALITY ===
+# Simple nested path equality - core Holodex v1 target
+
+# nested_equality: metadata boolean field
+*[metadata.featured == true]
+
+# nested_equality: slug object access
+*[slug.current == "hello-world"]
+
+# nested_equality: reference field access
+*[author._ref == "author-123"]
+
+# nested_equality: deep nested path
+*[metadata.stats.views > 1000]
+
+# === DEEP PATH (Array Traversal) ===
+# Portable Text and nested array patterns
+
+# deep_path: body text search
+*[body[].children[].text match "hello"]
+
+# deep_path: content block search
+*[content[].blocks[].spans[].text == "test"]
+
+# deep_path: real test suite - body text match
+*[body[].children[].text match "d*"][]._id
+
+# deep_path: body text with draft exclusion
+*[!(_id in path('drafts.*')) && body[].children[].text match "d*"][]._id
+
+# === COMPOUND NESTED ===
+# Type filter combined with field predicates
+
+# compound_nested: movie rating filter
+*[_type == "movie" && vote_average > 8.0][0...10]{title, tagline}
+
+# compound_nested: movie rating count
+count(*[_type == "movie" && vote_average > 8.5])
+
+# compound_nested: post metadata filter
+*[_type == "post" && metadata.published == true]
+
+# compound_nested: article category filter
+*[_type == "article" && category.slug == "news"]
+
+# compound_nested: complicated filter (runtime OR language)
+*[_type == "movie" && (runtime > 260 || spoken_languages[0] == "nb")]{_id, title}[0..10]
+
+# === ARRAY TRAVERSAL ===
+# Queries using [] to flatten arrays
+
+# array_traversal: tag membership
+*[tags[] == "featured"]
+
+# array_traversal: category reference check
+*[categories[]._ref == "cat-1"]
+
+# array_traversal: references function
+*[references(*[_type match "moviedb.*"][]._id)]|order(_id)[]._id
+
+# array_traversal: parent scope with array
+*[_type == "bar"]{matched: count(*[_type == "foo" && ^._id in sources[]._ref])}
+
+# === TYPE + FIELD FILTER ===
+# Common pattern: narrow by _type, then filter by field
+
+# type_plus_field: text match
+*[_type == "post" && title match "mario"]
+
+# type_plus_field: defined check
+*[_type == "post" && defined(publishedAt)]
+
+# type_plus_field: employee with department
+*[_type == "employee" && defined(department->)]
+
+# type_plus_field: employee department equality
+*[_type == "employee" && department->_id == "engineering"]
