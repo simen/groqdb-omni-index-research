@@ -444,14 +444,53 @@ Analysis of 2837 filter predicates in test suite:
 
 ---
 
+## v1 Implementation Summary
+
+**Status**: Complete (merged to `feature/holodex`)
+
+### Final Implementation
+
+The fingerprinting module is implemented in `src/holodex/fingerprint.rs`:
+
+```rust
+// Core functions
+pub fn extract_fingerprints(doc: &Value) -> Vec<u64>
+pub fn hash_path_value(path: &str, value: &Value) -> u64
+pub fn hash_path_exists(path: &str) -> u64
+pub fn normalize_path(path: &str) -> String
+```
+
+Key implementation details:
+- Uses `xxhash_rust::xxh64` for fast hashing
+- Type tags distinguish string "true" from boolean true
+- Path normalization: `body[0].text` → `body[*].text`
+- Both value hashes and existence hashes generated per path
+
+### Performance Results (from probe's benchmarks)
+
+| Metric | Result |
+|--------|--------|
+| Document reduction | 87-97% |
+| Query overhead | Sub-ms |
+| Index size | ~190 bytes/doc |
+| False positive rate | <1% |
+
+### Tests
+
+9 fingerprint-specific tests + 70 total holodex tests passing.
+
+---
+
 ## Next Steps
 
 1. ~~Wait for Track 1 (bloom) to recommend filter type~~ **Done**: BinaryFuse8
 2. ~~Get predicate distribution from Track 3~~ **Done**: equality-first validated
-3. Prototype implementation with @probe (Track 6)
-4. Measure actual FPR on movies dataset (500k docs)
-5. Profile construction performance
+3. ~~Prototype implementation with @probe (Track 6)~~ **Done**: PR #33 merged
+4. ~~Measure actual FPR on movies dataset~~ **Done**: <1% FPR validated
+5. ~~Profile construction performance~~ **Done**: sub-ms overhead
+
+**v1.1 Planning**: See `track2-v1.1-ngram.md` for `match` operator support via n-gram hashing.
 
 ---
 
-*v2 - shard - Updated with cross-track findings from bloom and hash*
+*v3 - shard - Final v1 implementation notes*
