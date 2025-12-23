@@ -1,7 +1,7 @@
 # Track 2: v1.2 Planning - `in` Operator & Unicode Support
 
 **Agent**: shard
-**Status**: Planning
+**Status**: Approved
 **Dependencies**: hash (predicate.rs), bloom (mod.rs), probe (planner.rs)
 
 ---
@@ -56,7 +56,9 @@ OR predicates use **additive** FPR (vs multiplicative for AND):
 | `a == 1 && b == 2` | 1% × 1% | ~0.01% |
 | `field in ["a", "b", "c"]` | 1% + 1% + 1% | ~3% |
 
-**Formula**: `FPR_in = min(1.0, n × FPR_single)` where n = array length
+**Formula**: `FPR_in = min(0.10, n × FPR_single)` where n = array length
+
+**10% cap rationale**: At 10+ values, pre-filter overhead approaches benefit threshold. Capping prevents threshold inflation (50% FPR → threshold 1.0 → pre-filter never used).
 
 #### Implementation Tasks
 
@@ -260,8 +262,8 @@ Bigrams (2 chars):   30-40% FPR → marginal benefit
    - Recommendation: Profile first, optimize if needed
 
 2. **`in` array size limit**: Should we cap array size for FPR sanity?
-   - E.g., `in` with 100 values → 100% FPR → effectively full scan anyway
-   - Recommendation: No cap needed, FPR math naturally degrades
+   - **Decision**: Cap FPR at 10% via `min(0.10, n × 0.01)`
+   - Rationale: Prevents threshold inflation; keeps pre-filter useful for large arrays
 
 3. **Middle wildcard telemetry**: How do we measure usage?
    - Recommendation: Add counter in predicate.rs for rejected middle wildcards
@@ -269,3 +271,4 @@ Bigrams (2 chars):   30-40% FPR → marginal benefit
 ---
 
 *v1 - shard - Initial v1.2 planning*
+*v2 - shard - Added 10% FPR cap decision per team review*
